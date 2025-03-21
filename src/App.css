@@ -1,0 +1,149 @@
+/* Center the entire app */
+.app-container, .login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f4f4f4;
+}
+
+/* Style the login form */
+.login-form, .dashboard {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 320px;
+}
+
+/* Style inputs */
+.login-input, .dropdown, .date-picker {
+  width: 90%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.input {
+  width: 85%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+/* Style buttons */
+.button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+/* Primary button */
+.button.primary {
+  background: #007bff;
+  color: white;
+}
+
+.button.primary:hover {
+  background: #0056b3;
+}
+
+/* Success button */
+.button.success {
+  background: #28a745;
+  color: white;
+}
+
+.button.success:hover {
+  background: #218838;
+}
+
+/* Logout button */
+.button.danger {
+  background: #dc3545;
+  color: white;
+}
+
+.button.danger:hover {
+  background: #c82333;
+}
+
+/* Error message */
+.error {
+  color: red;
+  margin-bottom: 10px;
+}
+
+/* History Section */
+.history-section {
+  margin-top: 15px;
+  background: #eee;
+  padding: 10px;
+  border-radius: 5px;
+  text-align: left;
+}
+
+/* Align elements in the admin panel */
+.admin-panel {
+  width: 100%;
+  max-width: 400px;
+  margin: auto;
+  text-align: center;
+}
+
+/* Spacing for dropdown and date pickers */
+.input-group {
+  margin-bottom: 10px;
+}
+/* History Table Styles */
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Table Headers */
+.history-table th {
+  background-color: #007bff;
+  color: white;
+  text-align: left;
+  padding: 12px;
+  font-size: 16px;
+}
+
+/* Table Rows */
+.history-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+}
+
+/* Zebra Striping */
+.history-table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+/* Hover Effect */
+.history-table tr:hover {
+  background-color: #eef3ff;
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+  .history-table {
+    font-size: 14px;
+  }
+  .history-table th, .history-table td {
+    padding: 10px;
+  }
+}
