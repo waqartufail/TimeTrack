@@ -1,5 +1,7 @@
+import config from "./config";  // ✅ Import Config
 import React, { useState } from "react";
 import axios from "axios";
+const BASE_URL = config.BASE_URL;  // ✅ Use BASE_URL from config
 
 const Login = ({ setToken }) => {
   const [email, setEmail] = useState("");
@@ -9,7 +11,7 @@ const Login = ({ setToken }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/auth/login", { email, password });
+      const res = await axios.post(`${BASE_URL}/auth/login`, { email, password });
       localStorage.setItem("token", res.data.token);
       setToken(res.data.token);
     } catch (err) {
