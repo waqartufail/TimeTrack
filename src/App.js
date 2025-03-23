@@ -4,22 +4,102 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import Login from "./Login";
 import "./App.css";
+import { io } from "socket.io-client";
 const BASE_URL = config.BASE_URL;  // ✅ Use BASE_URL from config
+const socket = io(BASE_URL, {
+  transports: ["websocket", "polling"],  // ✅ Ensures WebSocket connection
+}); // 🔹 Connect to WebSocket Server
 
 const App = () => {
-  
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
-  const [history, setHistory] = useState([]);
+ //const [history, setHistory] = useState([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 // 🟢 Add User Form State
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "" });
   const [generatedPassword, setGeneratedPassword] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [isOnlineUsersOpen, setIsOnlineUsersOpen] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [editEntry, setEditEntry] = useState(null);
+  const handleEdit = (entry) => {
+    console.log("Editing entry:", entry); // Debugging: Check if entry has `id`
+    if (!entry || !entry.id){
+      console.error("❌ Error: ID is missing in entry", entry);
+      return;
+    }
+    setEditEntry(entry);
+};
+const handleClose = () => {
+  setEditEntry(null);
+};
+
+// ✅ Function to Save Edited Check-Out Time
+const handleSave = async () => {
+  if (!editEntry || !editEntry.id || !editEntry.checkout_time) {
+      alert("Please select a check-out time!");
+      return;
+  }
+// Convert checkout_time to "YYYY-MM-DD HH:MM:SS"
+const dateObj = new Date(editEntry.checkout_time);
+const formattedCheckoutTime = dateObj.getFullYear() +
+    "-" + String(dateObj.getMonth() + 1).padStart(2, '0') +
+    "-" + String(dateObj.getDate()).padStart(2, '0') +
+    " " + String(dateObj.getHours()).padStart(2, '0') +
+    ":" + String(dateObj.getMinutes()).padStart(2, '0') +
+    ":" + String(dateObj.getSeconds()).padStart(2, '0');
+  console.log("🛠 Sending Update Request:", {
+      id: editEntry.id,
+      checkout_time: editEntry.formattedCheckoutTime
+  });
+
+  try {
+      // Capture response from API
+      const response = await axios.put(`${BASE_URL}/check/update-checkout/${editEntry.id}`, {
+          checkout_time: formattedCheckoutTime
+      });
+
+      console.log("✅ Update Success:", response.data);
+      alert("✅ Check-Out Time Updated!");
+
+      setEditEntry(null);
+      fetchHistory(); // Refresh data
+  } catch (error) {
+      console.error("❌ Error updating check-out time:", error);
+      alert("❌ Failed to update check-out time. Check console for details.");
+  }
+};
+ 
+  // 🟢 Handle Logout
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+    setUser(null);
+    setIsCheckedIn(false);
+  };
+
+  // 🟢 Decode Token on Load
+  useEffect(() => {
+    try {
+      const decoded = jwtDecode(token);
+      if (!decoded.id) throw new Error("Invalid Token Structure");
+      setUser({
+        id: decoded.id,
+        name: decoded.name || "User",
+        email: decoded.email || "",
+      });
+    } catch (error) {
+      console.error("Token error:", error);
+      handleLogout();
+    }
+  }, [token]);
+
   // 🟢 Function: Check User Status (Throttle to avoid excessive API calls)
   const checkUserStatus = useCallback(async (userId) => {
     if (!userId) return;
@@ -33,6 +113,19 @@ const App = () => {
       console.error("Error checking user status:", error);
     }
   }, [token]);
+
+  // 🟢 Listen for Check-In Notifications
+  useEffect(() => {
+  if (socket) {
+    socket.on("newCheckIn", (data) => {
+      setNotifications((prev) => [data.message, ...prev]);
+    });
+
+    return () => {
+      socket.off("newCheckIn");
+    };
+  }
+},[]);
 
   // 🕒 Polling Mechanism (Runs every 10s to reduce API load)
   useEffect(() => {
@@ -51,15 +144,10 @@ const App = () => {
       const res = await axios.get(`${BASE_URL}/auth/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      console.log("Fetched Users:", res.data);
-
       if (!res.data || res.data.length === 0) {
         console.warn("No users found!");
         return;
       }
-
-      // Filter out the admin
       const filteredUsers = res.data.filter((u) => u.email !== "mdhassan.qa90@gmail.com");
       setUsers(filteredUsers);
     } catch (error) {
@@ -120,8 +208,8 @@ const App = () => {
   };
 
   // 🟢 Fetch History of Selected User
-  const fetchHistory = async () => {
-    if (!selectedUser || !fromDate || !toDate) {
+  const fetchHistory = useCallback(async () => {
+    if (!selectedUser && !fromDate && !toDate) {
       alert("Please select a user and provide a date range!");
       return;
     }
@@ -130,11 +218,18 @@ const App = () => {
         headers: { Authorization: `Bearer ${token}` },
         params: {user_id: selectedUser, start_date: fromDate, end_date:toDate },
       });
-      setHistory(res.data);
+      console.log("API Response:", res.data);
+      if (!Array.isArray(res.data)) {
+        console.error("❌ Expected an array but got:", res.data);
+        return;
+      }
+      setHistoryData(res.data);
     } catch (error) {
       console.error("Error fetching history:", error);
     }
-  };
+  },[selectedUser, fromDate, toDate, token]);
+  useEffect(() => {
+  }, []);
 
   // 🟢 Add New User
   const handleAddUser = async () => {
@@ -163,23 +258,90 @@ const App = () => {
       alert("Something went wrong!");
     }
   };
-  // 🟢 Logout Function
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
-    setIsCheckedIn(false);
-  };
+  
+// 🟢 Fetch Online Users
+const fetchOnlineUsers = useCallback(async () => {
+  try {
+      const res = await axios.get(`${BASE_URL}/check/online-users`, {
+          headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const now = new Date();
+      const updatedUsers = res.data.map(user => {
+          if (user.checkin_time) {
+            const checkinDate = new Date(user.checkin_time + "Z");
+              const diffMs = now - checkinDate;
+
+              let timeString = "";
+              const minutes = Math.floor(diffMs / 60000);
+              const hours = Math.floor(minutes / 60);
+
+              if (minutes < 60) {
+                  timeString = `${minutes}m`;
+              } else {
+                  timeString = `${hours}h ${minutes % 60}m`;
+              }
+
+              return { ...user, checkinDuration: timeString };
+          }
+          return { ...user, checkinDuration: "Just now" };
+      });
+
+      setOnlineUsers(updatedUsers);
+  } catch (error) {
+      console.error("Error fetching online users:", error);
+  }
+}, [token]);
+
+ // 🟢 Listen for Check-In Notifications (For Admin Only)
+ useEffect(() => {
+  if (user?.name === "Md Hassan") {
+    socket.on("newCheckIn", (data) => {
+      setNotifications((prev) => [data.message, ...prev]);
+    });
+
+    return () => {
+      socket.off("newCheckIn");
+    };
+  }
+}, [user]);
+
+// 🟢 Auto-Update Online Users Every 10s
+useEffect(() => {
+  fetchOnlineUsers();
+  const interval = setInterval(fetchOnlineUsers, 10000);
+  return () => clearInterval(interval);
+}, [fetchOnlineUsers]);
+
   return (
-    <div className="app-container">
+    <div className="container">
+      {/* ✅ Show Login Page if Token is Missing */}
       {!token ? (
         <Login setToken={setToken} />
       ) : (
         <div className="dashboard">
           <h2>Welcome, {user?.name || "Guest"}</h2>
+          {/* 🔹 Admin Panel (If User is Admin) */}
           {user?.name === "Md Hassan" ? (
-            <div className="admin-panel">
+            <div className="main-content">
+              {/* Left Panel: Admin Actions */}
+              <div className="admin-panel">
               <h3>Admin Panel</h3>
+              {/* 🟢 Notifications (Admin Only) */}
+              {notifications.length > 0 &&(
+              <div className="notifications">
+              <button className="bell">
+                  🔔 {notifications.length > 0 && <span className="badge">{notifications.length}</span>}
+              </button>
+                <div className="notifictiondropdown">
+                <button className="bell">🔔 {notifications.length > 0 && <span className="badge">{notifications.length}</span>}</button>
+                <div className="notification-dropdown">
+                      {notifications.length > 0 ? notifications.map((msg, index) => <p key={index}>{msg}</p>) : <p>No new notifications</p>}
+                </div>
+               </div>
+               </div>
+              )}
+              {/* 🟢 Add User */}
               <button onClick={() => setShowAddUser(!showAddUser)} className="button success">Add User</button>
               {showAddUser && (
                 <div className="add-user-form">
@@ -194,11 +356,10 @@ const App = () => {
                   )}
                 </div>
               )}
-              {/* 🟢 Dropdown to Select User */}
+              {/* 🟢 User Selection */}
               <div style={{ textAlign: "left", width: "100%" }}>
                 <label>Select User</label>
-              </div>
-              <select 
+                <select 
                 value={selectedUser} 
                 onChange={(e) => setSelectedUser(e.target.value)} 
                 className="dropdown"
@@ -208,7 +369,7 @@ const App = () => {
                   <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
                 ))}
               </select>
-              
+              </div>
               {/* 🟢 Date Pickers */}
               <div style={{ textAlign: "left", width: "100%" }}>
                 <label>From Date</label>
@@ -221,32 +382,77 @@ const App = () => {
               
               {/* 🟢 Fetch History Button */}
               <button onClick={fetchHistory} className="button success">Show History</button>
-              
-              {/* 🟢 History Section */}
+              </div>
+              {/* Right Panel: 🟢 History Section (Only Shows if Data Exists) */}
               {
-                history.length > 0 && (
+                historyData.length > 0 && (
+                  <div className="history-panel">
+                    <h2>History Table</h2>
                   <table className="history-table">
                   <thead>
                     <tr>
                     <th style={{ textAlign: "left" }}>Check-In Time</th>
                     <th style={{ textAlign: "right" }}>Check-Out Time</th>
                     <th style={{ textAlign: "right" }}>Duration</th>
+                    <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {history.map((record, index) => (
-                      <tr key={index}>
-                        <td>{record.checkin_time}</td>
-                        <td>{record.checkout_time}</td>
-                        <td>{record.duration}</td>
+                    {historyData.map((entry,index) => (
+                      <tr key={entry.id || index}>
+                        <td style={{ textAlign: "left" }}>{new Date(entry.checkin_time).toLocaleString()}</td>
+                        <td style={{ textAlign: "right" }}>{new Date(entry.checkout_time).toLocaleString()}</td>
+                        <td style={{ textAlign: "right" }}>{entry.duration}</td>
+                        <td>
+                          <button onClick={() => handleEdit(entry)}>✏️ Edit</button>
+                      </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                )
-              }
-              {history.length === 0 && <p>No history found.</p>}
-            </div>
+                </div>
+                )}
+                {/* 🔹 Modal for Editing Check-Out Time */}
+                {editEntry &&(
+                    <div className="modal-overlay">
+                      <div className="modal">
+                      <h2>Edit Check-Out Time</h2>
+                      <input 
+                            type="datetime-local" 
+                            value={editEntry.checkout_time || ""}
+                            className="date-picker"
+                            onChange={(e) => setEditEntry({ ...editEntry, checkout_time: e.target.value })}
+                        />
+                        <div className="modal-buttons">
+                            <button onClick={handleSave}>✅ Save</button>
+                            <button onClick={handleClose}>❌ Cancel</button>
+                        </div>
+                        </div>
+                      </div>
+                  )}
+              {historyData === null ? null : historyData.length === 0 && <p>No history found.</p>}
+              {/* 🟢 Show Online Users */}
+            <div className={`online-users-container ${isOnlineUsersOpen ? "active" : ""}`}>
+              <button className="toggle-online-users" onClick={() => setIsOnlineUsersOpen(!isOnlineUsersOpen)}>
+                Online Users
+              </button>
+                {/* <h3>Online Users</h3> */}
+              <div className="online-users-list">
+                {onlineUsers.length > 0 ? (
+                  <ul>
+                    {onlineUsers.map((user) => (
+                    <li key={user.id}>
+                      <span className={`user-status ${user.isCheckedIn ? "online" : "offline"}`}></span>
+                      {user.name} <span className="dim-text">{user.checkinDuration}</span>
+                    </li>
+                  ))}
+                  </ul>
+                ) : (
+                  <p>No users are currently checked in.</p>
+                )}
+              </div>
+              </div>
+              </div>
           ) : (
             <button onClick={handleCheckInOut} className="button primary">
               {isCheckedIn ? "Check Out" : "Check In"}
