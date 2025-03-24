@@ -5,6 +5,7 @@ import { jwtDecode } from "jwt-decode";
 import Login from "./Login";
 import "./App.css";
 import { io } from "socket.io-client";
+import { DateTime } from "luxon";
 const BASE_URL = config.BASE_URL;  // ✅ Use BASE_URL from config
 const socket = io(BASE_URL, {
   transports: ["websocket", "polling"],  // ✅ Ensures WebSocket connection
@@ -39,6 +40,7 @@ const App = () => {
 const handleClose = () => {
   setEditEntry(null);
 };
+
 
 // ✅ Function to Save Edited Check-Out Time
 const handleSave = async () => {
@@ -266,23 +268,23 @@ const fetchOnlineUsers = useCallback(async () => {
           headers: { Authorization: `Bearer ${token}` },
       });
 
-      const now = new Date();
+      const now = DateTime.now().setZone("America/New_York");
+
       const updatedUsers = res.data.map(user => {
-          if (user.checkin_time) {
-            const checkinDate = new Date(user.checkin_time + "Z");
-              const diffMs = now - checkinDate;
+        if (user.checkin_time) {
+          const checkinDate = DateTime.fromFormat(user.checkin_time, "yyyy-MM-dd HH:mm:ss", {
+            zone: "America/New_York",
+          });
 
-              let timeString = "";
-              const minutes = Math.floor(diffMs / 60000);
-              const hours = Math.floor(minutes / 60);
-
-              if (minutes < 60) {
-                  timeString = `${minutes}m`;
-              } else {
-                  timeString = `${hours}h ${minutes % 60}m`;
-              }
-
-              return { ...user, checkinDuration: timeString };
+          if (!checkinDate.isValid) {
+          console.error("Invalid checkin_time:", user.checkin_time);
+          return { ...user, checkinDuration: "Unknown" };
+        }
+        const diffMinutes = now.diff(checkinDate, ["hours", "minutes"]);
+        const hours = Math.floor(diffMinutes.hours);
+        const minutes = Math.floor(diffMinutes.minutes);
+        const timeString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+            return { ...user, checkinDuration: timeString };
           }
           return { ...user, checkinDuration: "Just now" };
       });
