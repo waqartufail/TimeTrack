@@ -4,8 +4,10 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import Login from "./Login";
 import "./App.css";
+import "bootstrap/dist/css/bootstrap.min.css";
 import { io } from "socket.io-client";
 import { DateTime } from "luxon";
+import UpdatePasswordModal from './UpdatePasswordModal';
 const BASE_URL = config.BASE_URL;  // ✅ Use BASE_URL from config
 const socket = io(BASE_URL, {
   transports: ["websocket", "polling"],  // ✅ Ensures WebSocket connection
@@ -29,6 +31,8 @@ const App = () => {
   const [isOnlineUsersOpen, setIsOnlineUsersOpen] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [editEntry, setEditEntry] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const handleEdit = (entry) => {
     console.log("Editing entry:", entry); // Debugging: Check if entry has `id`
     if (!entry || !entry.id){
@@ -36,6 +40,42 @@ const App = () => {
       return;
     }
     setEditEntry(entry);
+};
+const Header = ({ username }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  const handlePasswordUpdate = async () => {
+    if (!user?.id) {
+      console.error("User ID is missing!");
+      return;
+    }
+    try {
+      
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/update-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ user_id: user.id, oldPassword, newPassword }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Password updated successfully!");
+        setShowModal(false);
+      } else {
+        alert(data.error || "Failed to update password.");
+      }
+    } catch (error) {
+      alert("Something went wrong. Try again!");
+    }
+  }};
+
+  const handleShowModal = () => {
+    setShowModal(true);
 };
 const handleClose = () => {
   setEditEntry(null);
@@ -96,6 +136,7 @@ const formattedCheckoutTime = dateObj.getFullYear() +
         name: decoded.name || "User",
         email: decoded.email || "",
       });
+      setUserId(decoded.id);
     } catch (error) {
       console.error("Token error:", error);
       handleLogout();
@@ -322,7 +363,20 @@ useEffect(() => {
         <Login setToken={setToken} />
       ) : (
         <div className="dashboard">
-          <h2>Welcome, {user?.name || "Guest"}</h2>
+          <h2>Welcome, <span
+          style={{ color: "blue", textDecoration: "underline", cursor: "pointer" }}
+          onClick={handleShowModal}
+        >
+          {user?.name || "Guest"}
+        </span>
+        <UpdatePasswordModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        userId={userId}
+        token={token}
+      />
+            {/* {user?.name || "Guest"} */}
+            </h2>
           {/* 🔹 Admin Panel (If User is Admin) */}
           {user?.name === "Md Hassan" ? (
             <div className="main-content">
@@ -432,7 +486,7 @@ useEffect(() => {
                         </div>
                       </div>
                   )}
-              {historyData === null ? null : historyData.length === 0 && <p>No history found.</p>}
+              {historyData === null ? null : historyData.length === 0 && <p></p>}
               {/* 🟢 Show Online Users */}
             <div className={`online-users-container ${isOnlineUsersOpen ? "active" : ""}`}>
               <button className="toggle-online-users" onClick={() => setIsOnlineUsersOpen(!isOnlineUsersOpen)}>
@@ -465,5 +519,4 @@ useEffect(() => {
     </div>
   );
 };
-
 export default App;
