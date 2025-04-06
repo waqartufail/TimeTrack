@@ -41,38 +41,38 @@ const App = () => {
     }
     setEditEntry(entry);
 };
-const Header = ({ username }) => {
-  const [showModal, setShowModal] = useState(false);
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+// const Header = ({ username }) => {
+//   const [showModal, setShowModal] = useState(false);
+//   const [oldPassword, setOldPassword] = useState("");
+//   const [newPassword, setNewPassword] = useState("");
 
-  const handlePasswordUpdate = async () => {
-    if (!user?.id) {
-      console.error("User ID is missing!");
-      return;
-    }
-    try {
+//   const handlePasswordUpdate = async () => {
+//     if (!user?.id) {
+//       console.error("User ID is missing!");
+//       return;
+//     }
+//     try {
       
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/update-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ user_id: user.id, oldPassword, newPassword }),
-      });
+//       const res = await fetch(`${process.env.REACT_APP_API_URL}/update-password`, {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${localStorage.getItem("token")}`,
+//         },
+//         body: JSON.stringify({ user_id: user.id, oldPassword, newPassword }),
+//       });
 
-      const data = await res.json();
-      if (res.ok) {
-        alert("Password updated successfully!");
-        setShowModal(false);
-      } else {
-        alert(data.error || "Failed to update password.");
-      }
-    } catch (error) {
-      alert("Something went wrong. Try again!");
-    }
-  }};
+//       const data = await res.json();
+//       if (res.ok) {
+//         alert("Password updated successfully!");
+//         setShowModal(false);
+//       } else {
+//         alert(data.error || "Failed to update password.");
+//       }
+//     } catch (error) {
+//       alert("Something went wrong. Try again!");
+//     }
+//   }};
 
   const handleShowModal = () => {
     setShowModal(true);
