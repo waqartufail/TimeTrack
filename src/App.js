@@ -33,7 +33,9 @@ const App = () => {
   const [editEntry, setEditEntry] = useState(null);
   const [userId, setUserId] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
   const handleEdit = (entry) => {
+    
     console.log("Editing entry:", entry); // Debugging: Check if entry has `id`
     if (!entry || !entry.id){
       console.error("❌ Error: ID is missing in entry", entry);
@@ -41,38 +43,6 @@ const App = () => {
     }
     setEditEntry(entry);
 };
-// const Header = ({ username }) => {
-//   const [showModal, setShowModal] = useState(false);
-//   const [oldPassword, setOldPassword] = useState("");
-//   const [newPassword, setNewPassword] = useState("");
-
-//   const handlePasswordUpdate = async () => {
-//     if (!user?.id) {
-//       console.error("User ID is missing!");
-//       return;
-//     }
-//     try {
-      
-//       const res = await fetch(`${process.env.REACT_APP_API_URL}/update-password`, {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//           Authorization: `Bearer ${localStorage.getItem("token")}`,
-//         },
-//         body: JSON.stringify({ user_id: user.id, oldPassword, newPassword }),
-//       });
-
-//       const data = await res.json();
-//       if (res.ok) {
-//         alert("Password updated successfully!");
-//         setShowModal(false);
-//       } else {
-//         alert(data.error || "Failed to update password.");
-//       }
-//     } catch (error) {
-//       alert("Something went wrong. Try again!");
-//     }
-//   }};
 
   const handleShowModal = () => {
     setShowModal(true);
@@ -81,7 +51,10 @@ const handleClose = () => {
   setEditEntry(null);
 };
 
-
+const formatToInputDatetime = (datetimeStr) => {
+  const date = new Date(datetimeStr);
+  return date.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
+};
 // ✅ Function to Save Edited Check-Out Time
 const handleSave = async () => {
   if (!editEntry || !editEntry.id || !editEntry.checkout_time) {
@@ -98,8 +71,9 @@ const formattedCheckoutTime = dateObj.getFullYear() +
     ":" + String(dateObj.getSeconds()).padStart(2, '0');
   console.log("🛠 Sending Update Request:", {
       id: editEntry.id,
-      checkout_time: editEntry.formattedCheckoutTime
+      checkout_time: formattedCheckoutTime
   });
+  
 
   try {
       // Capture response from API
@@ -469,15 +443,23 @@ useEffect(() => {
                 </div>
                 )}
                 {/* 🔹 Modal for Editing Check-Out Time */}
-                {editEntry &&(
-                    <div className="modal-overlay">
-                      <div className="modal">
+                {editEntry && (
+                    <div className="custom-modal-overlay">
+                      <div className="custom-modal">
                       <h2>Edit Check-Out Time</h2>
                       <input 
                             type="datetime-local" 
-                            value={editEntry.checkout_time || ""}
+                            // value={editEntry.checkout_time || ""}
+                            value={
+                              editEntry.checkout_time
+                               ? formatToInputDatetime(editEntry.checkout_time)
+                                : ""
+                              }
                             className="date-picker"
-                            onChange={(e) => setEditEntry({ ...editEntry, checkout_time: e.target.value })}
+                            onChange={(e) => 
+                              setEditEntry({ 
+                                ...editEntry, 
+                                checkout_time: e.target.value})}
                         />
                         <div className="modal-buttons">
                             <button onClick={handleSave}>✅ Save</button>
