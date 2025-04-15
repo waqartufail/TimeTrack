@@ -33,6 +33,11 @@ const App = () => {
   const [editEntry, setEditEntry] = useState(null);
   const [userId, setUserId] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const isMdHassan = user?.name === "Md Hassan";
+  const isRahulKumar = user?.name === "Rahul Kumar";
+  const isAdmin = isMdHassan;
+  const canSeeUserHistory = isMdHassan || isRahulKumar;
+  const canCheckInOut = !isMdHassan;
 
   const handleEdit = (entry) => {
     
@@ -47,6 +52,7 @@ const App = () => {
   const handleShowModal = () => {
     setShowModal(true);
 };
+
 const handleClose = () => {
   setEditEntry(null);
 };
@@ -55,7 +61,8 @@ const formatToInputDatetime = (datetimeStr) => {
   const date = new Date(datetimeStr);
   return date.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
 };
-// ✅ Function to Save Edited Check-Out Time
+
+  // ✅ Function to Save Edited Check-Out Time
 const handleSave = async () => {
   if (!editEntry || !editEntry.id || !editEntry.checkout_time) {
       alert("Please select a check-out time!");
@@ -93,15 +100,15 @@ const formattedCheckoutTime = dateObj.getFullYear() +
 };
  
   // 🟢 Handle Logout
-  const handleLogout = () => {
+const handleLogout = () => {
     localStorage.removeItem("token");
     setToken(null);
     setUser(null);
     setIsCheckedIn(false);
-  };
+};
 
   // 🟢 Decode Token on Load
-  useEffect(() => {
+useEffect(() => {
     try {
       const decoded = jwtDecode(token);
       if (!decoded.id) throw new Error("Invalid Token Structure");
@@ -115,10 +122,10 @@ const formattedCheckoutTime = dateObj.getFullYear() +
       console.error("Token error:", error);
       handleLogout();
     }
-  }, [token]);
+}, [token]);
 
   // 🟢 Function: Check User Status (Throttle to avoid excessive API calls)
-  const checkUserStatus = useCallback(async (userId) => {
+const checkUserStatus = useCallback(async (userId) => {
     if (!userId) return;
 
     try {
@@ -155,50 +162,67 @@ const formattedCheckoutTime = dateObj.getFullYear() +
   }, [user?.id, checkUserStatus]);
 
   // 🟢 Fetch Users (Excludes admin email)
-  const fetchUsers = useCallback(async () => {
+const fetchUsers = useCallback(async (loggedInUser) => {
     try {
       console.log("BASE_URL:", BASE_URL);
       const res = await axios.get(`${BASE_URL}/auth/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (!res.data || res.data.length === 0) {
         console.warn("No users found!");
         return;
       }
-      const filteredUsers = res.data.filter((u) => u.email !== "mdhassan.qa90@gmail.com");
+
+      let filteredUsers = [];
+      if (loggedInUser.name === "Md Hassan"){
+        filteredUsers = res.data.filter((u) => 
+          u.email !== "mdhassan.qa90@gmail.com");
+      } else if (loggedInUser.name === "Rahul Kumar"){
+        filteredUsers = res.data.filter(
+          (u) => 
+            u.email !== "chelanirahulkumar@gmail.com" && 
+            u.email !== "mdhassan.qa90@gmail.com"
+        );
+      }
       setUsers(filteredUsers);
     } catch (error) {
       console.error("Error fetching users:", error);
     }
-  }, [token]);
+}, [token]);
 
   // 🟢 Runs only when token changes (or on first load)
-  useEffect(() => {
+useEffect(() => {
     if (token) {
+      //let loggedInUser;
       try {
         const decoded = jwtDecode(token);
         console.log("Decoded User:", decoded);
-        setUser({
+        const loggedInUser = ({
           id: decoded.id,
           name: decoded.name || "User",
           email: decoded.email || "",
         });
 
+        setUser(loggedInUser);
         checkUserStatus(decoded.id);
-
+        
         // Fetch users only if logged-in user is admin
-        if (decoded.name === "Md Hassan") {
-          fetchUsers();
+        // if (decoded.name === "Md Hassan" || decoded.name === "Rahul Kumar") {
+        //   fetchUsers();
+        // }
+        if (["Md Hassan", "Rahul Kumar"].includes(loggedInUser.name)) {
+          fetchUsers(loggedInUser); // Pass current user to fetchUsers
         }
       } catch (error) {
         console.error("Invalid token:", error);
         handleLogout();
       }
     }
-  }, [token, checkUserStatus, fetchUsers]);
+}, [token, checkUserStatus, fetchUsers]);
 
   // 🟢 Handle Check-In/Check-Out
-  const handleCheckInOut = async () => {
+const handleCheckInOut = async () => {
     if (!user?.id) {
       console.error("User ID is missing!");
       return;
@@ -222,10 +246,10 @@ const formattedCheckoutTime = dateObj.getFullYear() +
     } catch (error) {
       console.error("Error:", error.response?.data || error.message);
     }
-  };
+};
 
   // 🟢 Fetch History of Selected User
-  const fetchHistory = useCallback(async () => {
+const fetchHistory = useCallback(async () => {
     if (!selectedUser && !fromDate && !toDate) {
       alert("Please select a user and provide a date range!");
       return;
@@ -244,16 +268,17 @@ const formattedCheckoutTime = dateObj.getFullYear() +
     } catch (error) {
       console.error("Error fetching history:", error);
     }
-  },[selectedUser, fromDate, toDate, token]);
-  useEffect(() => {
-  }, []);
+},[selectedUser, fromDate, toDate, token]);
+
+useEffect(() => {
+}, []);
 
   // 🟢 Add New User
-  const handleAddUser = async () => {
+const handleAddUser = async () => {
     if (!newUser.name || !newUser.email) {
       alert("Please enter Name and Email");
       return;
-    }
+}
 
     try {
       const response = await fetch(`${BASE_URL}/auth/register`, {
@@ -274,7 +299,7 @@ const formattedCheckoutTime = dateObj.getFullYear() +
       console.error("Error adding user:", error);
       alert("Something went wrong!");
     }
-  };
+};
   
 // 🟢 Fetch Online Users
 const fetchOnlineUsers = useCallback(async () => {
@@ -311,11 +336,11 @@ const fetchOnlineUsers = useCallback(async () => {
 }, [token]);
 
  // 🟢 Listen for Check-In Notifications (For Admin Only)
- useEffect(() => {
+useEffect(() => {
   if (user?.name === "Md Hassan") {
     socket.on("newCheckIn", (data) => {
       setNotifications((prev) => [data.message, ...prev]);
-    });
+});
 
     return () => {
       socket.off("newCheckIn");
@@ -330,7 +355,7 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [fetchOnlineUsers]);
 
-  return (
+return (
     <div className="container">
       {/* ✅ Show Login Page if Token is Missing */}
       {!token ? (
@@ -352,153 +377,158 @@ useEffect(() => {
             {/* {user?.name || "Guest"} */}
             </h2>
           {/* 🔹 Admin Panel (If User is Admin) */}
-          {user?.name === "Md Hassan" ? (
-            <div className="main-content">
-              {/* Left Panel: Admin Actions */}
-              <div className="admin-panel">
-              <h3>Admin Panel</h3>
-              {/* 🟢 Notifications (Admin Only) */}
-              {notifications.length > 0 &&(
-              <div className="notifications">
-              <button className="bell">
-                  🔔 {notifications.length > 0 && <span className="badge">{notifications.length}</span>}
-              </button>
-                <div className="notifictiondropdown">
-                <button className="bell">🔔 {notifications.length > 0 && <span className="badge">{notifications.length}</span>}</button>
-                <div className="notification-dropdown">
-                      {notifications.length > 0 ? notifications.map((msg, index) => <p key={index}>{msg}</p>) : <p>No new notifications</p>}
-                </div>
-               </div>
-               </div>
-              )}
-              {/* 🟢 Add User */}
-              <button onClick={() => setShowAddUser(!showAddUser)} className="button success">Add User</button>
-              {showAddUser && (
-                <div className="add-user-form">
-                  <input type="text" placeholder="Name" className="input" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
-                  <input type="email" placeholder="Email" className="input" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
-                  <button onClick={handleAddUser} className="button primary">Register</button>
-                  {/* 🟢 Show Generated Password */}
-                  {generatedPassword && (
-                    <div className="generated-password">
-                      <label>User's Password is: <strong>{generatedPassword}</strong></label>
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* 🟢 User Selection */}
-              <div style={{ textAlign: "left", width: "100%" }}>
-                <label>Select User</label>
-                <select 
-                value={selectedUser} 
-                onChange={(e) => setSelectedUser(e.target.value)} 
-                className="dropdown"
-              >
-                <option value="">Select User</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
-              </select>
-              </div>
-              {/* 🟢 Date Pickers */}
-              <div style={{ textAlign: "left", width: "100%" }}>
-                <label>From Date</label>
-              </div>
-              <input type="date" className="date-picker" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-              <div style={{ textAlign: "left", width: "100%" }}>
-                <label>To Date</label>
-              </div>
-              <input type="date" className="date-picker" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-              
-              {/* 🟢 Fetch History Button */}
-              <button onClick={fetchHistory} className="button success">Show History</button>
-              </div>
-              {/* Right Panel: 🟢 History Section (Only Shows if Data Exists) */}
-              {
-                historyData.length > 0 && (
-                  <div className="history-panel">
-                    <h2>History Table</h2>
-                  <table className="history-table">
-                  <thead>
-                    <tr>
-                    <th style={{ textAlign: "left" }}>Check-In Time</th>
-                    <th style={{ textAlign: "right" }}>Check-Out Time</th>
-                    <th style={{ textAlign: "right" }}>Duration</th>
-                    <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyData.map((entry,index) => (
-                      <tr key={entry.id || index}>
-                        <td style={{ textAlign: "left" }}>{new Date(entry.checkin_time).toLocaleString()}</td>
-                        <td style={{ textAlign: "right" }}>{new Date(entry.checkout_time).toLocaleString()}</td>
-                        <td style={{ textAlign: "right" }}>{entry.duration}</td>
-                        <td>
-                          <button onClick={() => handleEdit(entry)}>✏️ Edit</button>
-                      </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-                )}
-                {/* 🔹 Modal for Editing Check-Out Time */}
-                {editEntry && (
-                    <div className="custom-modal-overlay">
-                      <div className="custom-modal">
-                      <h2>Edit Check-Out Time</h2>
-                      <input 
-                            type="datetime-local" 
-                            // value={editEntry.checkout_time || ""}
-                            value={
-                              editEntry.checkout_time
-                               ? formatToInputDatetime(editEntry.checkout_time)
-                                : ""
-                              }
-                            className="date-picker"
-                            onChange={(e) => 
-                              setEditEntry({ 
-                                ...editEntry, 
-                                checkout_time: e.target.value})}
-                        />
-                        <div className="modal-buttons">
-                            <button onClick={handleSave}>✅ Save</button>
-                            <button onClick={handleClose}>❌ Cancel</button>
-                        </div>
-                        </div>
-                      </div>
-                  )}
-              {historyData === null ? null : historyData.length === 0 && <p></p>}
-              {/* 🟢 Show Online Users */}
-            <div className={`online-users-container ${isOnlineUsersOpen ? "active" : ""}`}>
-              <button className="toggle-online-users" onClick={() => setIsOnlineUsersOpen(!isOnlineUsersOpen)}>
-                Online Users
-              </button>
-                {/* <h3>Online Users</h3> */}
-              <div className="online-users-list">
-                {onlineUsers.length > 0 ? (
-                  <ul>
-                    {onlineUsers.map((user) => (
-                    <li key={user.id}>
-                      <span className={`user-status ${user.isCheckedIn ? "online" : "offline"}`}></span>
-                      {user.name} <span className="dim-text">{user.checkinDuration}</span>
-                    </li>
-                  ))}
-                  </ul>
-                ) : (
-                  <p>No users are currently checked in.</p>
-                )}
-              </div>
-              </div>
-              </div>
-          ) : (
-            <button onClick={handleCheckInOut} className="button primary">
-              {isCheckedIn ? "Check Out" : "Check In"}
+          {isAdmin && (
+  <div className="main-content">
+    <div className="admin-panel">
+      <h3>Admin Panel</h3>
+
+      {/* 🟢 Notifications */}
+      {notifications.length > 0 && (
+        <div className="notifications">
+          <button className="bell">
+            🔔 <span className="badge">{notifications.length}</span>
+          </button>
+          <div className="notifictiondropdown">
+            <button className="bell">
+              🔔 <span className="badge">{notifications.length}</span>
             </button>
-          )}
+            <div className="notification-dropdown">
+              {notifications.map((msg, index) => (
+                <p key={index}>{msg}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 Add User */}
+      <button onClick={() => setShowAddUser(!showAddUser)} className="button success">Add User</button>
+      {showAddUser && (
+  <div className="add-user-form">
+    <input
+      type="text"
+      placeholder="Name"
+      className="input"
+      value={newUser.name}
+      onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+    />
+    <input
+      type="email"
+      placeholder="Email"
+      className="input"
+      value={newUser.email}
+      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+    />
+    <button onClick={handleAddUser} className="button primary">Register</button>
+
+    {generatedPassword && (
+      <div className="generated-password">
+        <label>User's Password is: <strong>{generatedPassword}</strong></label>
+      </div>
+    )}
+  </div>
+)}
+
+    </div>
+  </div>
+)}
+{canSeeUserHistory && (
+  <div className="main-content">
+  <div className="admin-panel">
+    {/* 🟢 User Selection */}
+    <label>Select User</label>
+    <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)} className="dropdown">
+      <option value="">Select User</option>
+      {users.map((u) => (
+        <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+      ))}
+    </select>
+
+    {/* 🟢 Date Pickers */}
+    <div>
+      <label>From Date</label>
+      <input type="date" className="date-picker" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+      <label>To Date</label>
+      <input type="date" className="date-picker" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+    </div>
+
+    {/* 🟢 Fetch History */}
+    <button onClick={fetchHistory} className="button success">Show History</button>
+
+    {/* 🟢 History Table */}
+    {historyData.length > 0 && (
+      <div className="history-panel">
+        <h2>History Table</h2>
+        <table className="history-table">
+          <thead>
+            <tr>
+              <th>Check-In Time</th>
+              <th>Check-Out Time</th>
+              <th>Duration</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {historyData.map((entry, index) => (
+              <tr key={entry.id || index}>
+                <td>{new Date(entry.checkin_time).toLocaleString()}</td>
+                <td>{new Date(entry.checkout_time).toLocaleString()}</td>
+                <td>{entry.duration}</td>
+                <td><button onClick={() => handleEdit(entry)}>✏️ Edit</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+  </div>
+)}
+{/* 🔹 Edit Modal */}
+{editEntry && (
+  <div className="custom-modal-overlay">
+    <div className="custom-modal">
+      <h2>Edit Check-Out Time</h2>
+      <input
+        type="datetime-local"
+        value={editEntry.checkout_time ? formatToInputDatetime(editEntry.checkout_time) : ""}
+        className="date-picker"
+        onChange={(e) => setEditEntry({ ...editEntry, checkout_time: e.target.value })}
+      />
+      <div className="modal-buttons">
+        <button onClick={handleSave}>✅ Save</button>
+        <button onClick={handleClose}>❌ Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* 🔹 Online Users */}
+<div className={`online-users-container ${isOnlineUsersOpen ? "active" : ""}`}>
+  <button className="toggle-online-users" onClick={() => setIsOnlineUsersOpen(!isOnlineUsersOpen)}>Online Users</button>
+  <div className="online-users-list">
+    {onlineUsers.length > 0 ? (
+      <ul>
+        {onlineUsers.map((user) => (
+          <li key={user.id}>
+            <span className={`user-status ${user.isCheckedIn ? "online" : "offline"}`}></span>
+            {user.name} <span className="dim-text">{user.checkinDuration}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p>No users are currently checked in.</p>
+    )}
+  </div>
+</div>
+{canCheckInOut && (
+  <button onClick={handleCheckInOut} className="button primary">
+    {isCheckedIn ? "Check Out" : "Check In"}
+  </button>
+)}
         </div>
       )}
     </div>
-  );
+);
 };
 export default App;
